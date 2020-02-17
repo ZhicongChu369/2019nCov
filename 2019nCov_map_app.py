@@ -38,8 +38,18 @@ country[index] = '中国台湾省'
 # store info in a pandas df
 df_iso = pd.DataFrame({'国家': country, 'code': code})
 
-# use API to retrive hubei cities data
-def hubei_data():
+# load map file
+with urlopen('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json') as response:
+    world_geo = json.load(response)
+# load map file
+with urlopen('https://raw.githubusercontent.com/johan/world.geo.json/6a1119de83dad01e07524e2ab97c2a1f54b9ef53/countries/CHN.geo.json') as response:
+    china_geo = json.load(response)
+# load map file
+with urlopen('https://raw.githubusercontent.com/longwosion/geojson-map-china/master/geometryProvince/42.json') as response:
+    hubei_geo = json.load(response)
+
+# use API to retrieve hubei cities data
+def hubei_retrieve():
     
     # allow for 10 retreive attemps max
     for i in range(10):
@@ -66,7 +76,7 @@ def hubei_data():
                              '死亡':deadCount, '地区代码':locationId})
     return df_hubei
 
-def world_china_data():
+def world_china_retrieve():
     
     # allow for 10 retreive attemps max
     for i in range(10):
@@ -125,30 +135,100 @@ def world_china_data():
     
     # append China data to World data table
     df_World = df_World.append(TW_correct, ignore_index=True)
-    time_stamp = dt.fromtimestamp(China_summary_json['updateTime'] / 1000)
+    updatetime = dt.fromtimestamp(China_summary_json['updateTime'] / 1000)
     
-    return df_World, df_China, time_stamp
+    return df_World, df_China, updatetime
+
+def update_obd_values(hubei_geo, china_geo, world_geo):
+    df_hubei = hubei_retrieve()
+    df_World, df_China, updatetime = world_china_retrieve()
+    
+    # set up hovertext
+    text = [ df_World['国家'][i] + '\n' +  str(df_World['确诊'][i]) + '例确诊'  for i in range(len(df_World))]
+    df_World['text'] = text
+
+    # extract province ids (used for locations) from json file
+    ids, provinces = [], []
+    
+    for i in range(len(china_geo['features'])):
+        ids.append( china_geo['features'][i]['id'] )
+        provinces.append( china_geo['features'][i]['properties']['name'] )
+        
+    df_province_code = pd.DataFrame({'省简称': provinces, 'code': ids})
+    df_China = df_China.merge(df_province_code, how = 'left', on = '省简称')
+    
+    # set up hovertext
+    text = [ df_China['省简称'][i] + '\n' +  str(df_China['确诊'][i]) + '例确诊'  for i in range(len(df_China))]
+    df_China['text'] = text
+
+    
+    # reorganize ids
+    hubei_features = []
+    for i in range(len(hubei_geo['features'])):
+        temp_feature = hubei_geo['features'][i]
+        temp_feature['id'] = temp_feature['properties']['id']
+        hubei_features.append(temp_feature)
+    
+    hubei_geo['features'] = hubei_features
+    # extract province ids (used for locations) from json file
+    ids, cities = [], []
+    
+    for i in range(len(hubei_geo['features'])):
+        ids.append( hubei_geo['features'][i]['id'] )
+        cities.append( hubei_geo['features'][i]['properties']['name'] )
+        
+    df_city_code = pd.DataFrame({'城市全称': cities, 'code': ids})
+    df_city_code['城市'] = ['恩施州', '十堰', '宜昌', '襄阳', '黄冈', '荆州', '荆门', '咸宁', '随州',
+                           '孝感', '武汉', '黄石', '神农架林区', '天门', '仙桃', '潜江', '鄂州']
+    df_hubei = df_hubei.merge(df_city_code, how = 'left', on = '城市')
+    
+    # set up hovertext
+    text = [ df_hubei['城市'][i] + '\n' +  str(df_hubei['确诊'][i]) + '例确诊'  for i in range(len(df_hubei))]
+    df_hubei['text'] = text
+    
+    return df_hubei, df_World, df_China, updatetime
 
 
-hubei_data = hubei_data()
-World_data, China_data, updatetime = world_china_data()
+def graph_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, title, updatetime):
+    
+    # prepare token for Mapbox
+    token = 'pk.eyJ1IjoiY2h1emhpY29uZyIsImEiOiJjazZoMG5tajIwNmh4M21ueGN0eXdtMmx6In0.kQscrYmKzfyLhN-YgENO0Q'
+    
+    data = go.Choroplethmapbox(geojson = geojson, locations = locations, 
+                               z = z , hovertext = hovertext,
+                               hoverinfo = 'text', colorscale = 'YlOrRd',
+                               marker_line_width = 0.5, marker_line_color = 'rgb(169, 164, 159)',
+                               colorbar=dict(
+                                   title="确诊病例数",
+                                   titleside="top",
+                                   tickmode="array",
+                                   tickvals=np.arange(0, 5, 1),
+                                   ticktext=["1", "10", "100", "1k", '10k', '100k'],
+                                   ticks="outside"
+                                    ))
+    
+    layout = go.Layout(mapbox = {'accesstoken': token, 'center':{'lon' : center_lon, 'lat': center_lat},'zoom': zoom},
+                  margin={"r":1,"t":45,"l":45,"b":1}, title = '疫情地图 ' + title,
+                  annotations = [dict(
+                      x=0.55,
+                      y=0.03,
+                      xref='paper',
+                      yref='paper',
+                      text='数据更新于 ' + str(updatetime),
+                      showarrow = False
+                 )])
+        
+    return data, layout
 
+
+df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
 
 app = dash.Dash('vehicle-data')
 
-data_dict = {"世界分布":World_data, "中国分布": China_data, 
-             "湖北分布": hubei_data}
+data_dict = {"世界分布": df_World, "中国分布": df_China, 
+             "湖北分布": df_hubei}
 
-def update_obd_values( updatetime, hubei_data, World_data, China_data):
-    
-    hubei_data = hubei_data()
-    World_data, China_data, updatetime = world_china_data()
 
-    return hubei_data, World_data, China_data, updatetime
-
-# =============================================================================
-# hubei_data, World_data, China_data, updatetime = update_obd_values(updatetime, hubei_data, World_data, China_data)
-# =============================================================================
 
 app.layout = html.Div([
     html.Div([
@@ -173,37 +253,59 @@ app.layout = html.Div([
     [dash.dependencies.Input('选择地图区域', 'value')],
     events=[dash.dependencies.Event('graph-update', 'interval')])
 
-def update_graph(data_names, updatetime, hubei_data, World_data, China_data):
+def update_graph(data_names, updatetime, df_hubei, df_World, df_China):
     graphs = []
-    hubei_data, World_data, China_data, updatetime = update_obd_values(updatetime, hubei_data, World_data, China_data)
+    df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
     
-# =============================================================================
-#     if len(data_names)>2:
-#         class_choice = 'col s12 m6 l4'
-#     elif len(data_names) == 2:
-#         class_choice = 'col s12 m6 l6'
-#     else:
-#         class_choice = 'col s12'
-# =============================================================================
+    if len(data_names)>2:
+        class_choice = 'col s12 m6 l4'
+    elif len(data_names) == 2:
+        class_choice = 'col s12 m6 l6'
+    else:
+        class_choice = 'col s12'
 
 
-    for data_name in data_names:
 
-        data = go.Scatter(
-            x=list(times),
-            y=list(data_dict[data_name]),
-            name='Scatter',
-            fill="tozeroy",
-            fillcolor="#6897bb"
-            )
-
-        graphs.append(html.Div(dcc.Graph(
-            id=data_name,
-            animate=True,
-            figure={'data': [data],'layout' : go.Layout(xaxis=dict(range=[min(times),max(times)]),
-                                                        yaxis=dict(range=[min(data_dict[data_name]),max(data_dict[data_name])]),
-                                                        margin={'l':50,'r':1,'t':45,'b':1},
-                                                        title='{}'.format(data_name))}
-            ), className=class_choice))
+    if "世界分布" in data_names:
+        data, layout = graph_prep(geojson = world_geo, locations = df_World['code'],
+                                  z = np.log10(df_World['确诊']), hovertext = df_World['text'],
+                                  center_lon = 109.469607, center_lat = 37.826077,
+                                  zoom = 1, title = "世界", updatetime = updatetime)
+        
+            
+        graphs.append(html.Div(dcc.Graph(id="世界分布", animate=True, 
+                                         figure={'data': [data],'layout' : layout}), className=class_choice))
+        
+    if "中国分布" in data_names:
+        data, layout = graph_prep(geojson = china_geo, locations = df_China['code'],
+                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
+                                  center_lon = 109.469607, center_lat = 37.826077,
+                                  zoom = 2.6, title = "中国", updatetime = updatetime)
+        
+            
+        graphs.append(html.Div(dcc.Graph(id="中国分布", animate=True, 
+                                         figure={'data': [data],'layout' : layout}), className=class_choice))
+        
+    if "湖北分布" in data_names:
+        data, layout = graph_prep(geojson = hubei_geo, locations = df_China['code'],
+                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
+                                  center_lon = 112.1994, center_lat = 31.0354,
+                                  zoom = 2.6, title = "湖北", updatetime = updatetime)
+        
+            
+        graphs.append(html.Div(dcc.Graph(id="湖北分布", animate=True, 
+                                         figure={'data': [data],'layout' : layout}), className=class_choice))
 
     return graphs
+
+external_css = ["https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css"]
+for css in external_css:
+    app.css.append_css({"external_url": css})
+
+external_js = ['https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js']
+for js in external_css:
+    app.scripts.append_script({'external_url': js})
+
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
