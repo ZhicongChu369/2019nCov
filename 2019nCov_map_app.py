@@ -223,7 +223,7 @@ def graph_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, t
 
 df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
 
-app = dash.Dash('vehicle-data')
+app = dash.Dash('2019nCov-data')
 
 data_dict = {"世界分布": df_World, "中国分布": df_China, 
              "湖北分布": df_hubei}
@@ -250,10 +250,9 @@ app.layout = html.Div([
     
 @app.callback(
     dash.dependencies.Output('graphs','children'),
-    [dash.dependencies.Input('选择地图区域', 'value')],
-    events=[dash.dependencies.Event('graph-update', 'interval')])
+    [dash.dependencies.Input('选择地图区域', 'value')])
 
-def update_graph(data_names, updatetime, df_hubei, df_World, df_China):
+def update_graph(data_names):
     graphs = []
     df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
     
@@ -287,16 +286,17 @@ def update_graph(data_names, updatetime, df_hubei, df_World, df_China):
                                          figure={'data': [data],'layout' : layout}), className=class_choice))
         
     if "湖北分布" in data_names:
-        data, layout = graph_prep(geojson = hubei_geo, locations = df_China['code'],
-                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
+        data, layout = graph_prep(geojson = hubei_geo, locations = df_hubei['code'],
+                                  z = np.log10(df_hubei['确诊']), hovertext = df_hubei['text'],
                                   center_lon = 112.1994, center_lat = 31.0354,
-                                  zoom = 2.6, title = "湖北", updatetime = updatetime)
+                                  zoom = 5, title = "湖北", updatetime = updatetime)
         
             
         graphs.append(html.Div(dcc.Graph(id="湖北分布", animate=True, 
                                          figure={'data': [data],'layout' : layout}), className=class_choice))
 
     return graphs
+
 
 external_css = ["https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css"]
 for css in external_css:
