@@ -2,7 +2,7 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-import time
+import dash_bootstrap_components as dbc
 from collections import deque
 import plotly.graph_objs as go
 import numpy as np
@@ -15,9 +15,7 @@ import lxml.html as lh
 import pandas as pd
 import plotly.graph_objects as go
 from time import sleep
-import sys
 import requests
-import random
 
 # scrap iso code table from wikipedia with beautifulsoup
 website_url = requests.get("https://zh.wikipedia.org/zh-cn/ISO_3166-1%E4%B8%89%E4%BD%8D%E5%AD%97%E6%AF%8D%E4%BB%A3%E7%A0%81").text
@@ -55,7 +53,7 @@ def hubei_retrieve():
     for i in range(10):
         response = requests.get("https://lab.isaaclin.cn/nCoV/api/area?latest=1&province=湖北省")
         if response.status_code == 200:
-            exit
+            break
     # verify everything went okay, and the result has been returned
     assert response.status_code == 200
     # extract city data in Hubei
@@ -82,7 +80,7 @@ def world_china_retrieve():
     for i in range(10):
         response = requests.get("https://lab.isaaclin.cn/nCoV/api/area?latest=1")
         if response.status_code == 200:
-            exit
+            break
     # verify everything went okay, and the result has been returned
     assert response.status_code == 200
     raw_data_json = response.json()['results']
@@ -112,7 +110,7 @@ def world_china_retrieve():
     for i in range(10):
         response = requests.get("https://lab.isaaclin.cn/nCoV/api/overall")
         if response.status_code == 200:
-            exit
+            break
             
     assert response.status_code == 200
     China_summary_json = response.json()['results'][0] 
@@ -223,7 +221,7 @@ def graph_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, t
 
 df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
 
-app = dash.Dash('2019nCov-data')
+app = dash.Dash('2019nCov-data',  external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 data_dict = {"世界分布": df_World, "中国分布": df_China, 
              "湖北分布": df_hubei}
@@ -231,40 +229,38 @@ data_dict = {"世界分布": df_World, "中国分布": df_China,
 
 
 app.layout = html.Div([
-    html.Div([
-        html.H2('疫情地图',
-                style={'float': 'left',
-                       }),
-        ]),
-    dcc.Dropdown(id='选择地图区域',
-                 options=[{'label': s, 'value': s}
-                          for s in data_dict.keys()],
-                 value=["世界分布","中国分布","湖北分布"],
-                 multi=True
-                 ),
-    html.Div(children=html.Div(id='graphs'), className='row'),
+    dbc.Row( dbc.Col(
+            html.Div([
+                    html.H2('疫情地图',
+                            style={'float': 'left',
+                                   }),
+        ]), width = 6)),
+        
+    dbc.Row( dbc.Col(
+            html.Div([
+                    dcc.Dropdown(id='选择地图区域',
+                                 options=[{'label': s, 'value': s}
+                                          for s in data_dict.keys()],
+                                 value="中国分布",
+                                 multi=False
+                                 )
+                    ]), width = 3 ) ),
+    dcc.Loading(id="loading-1", children=html.Div(id='graph-container'), type="default"),
+    html.Div( children=html.Div(id='graphs'), className='row'),
     dcc.Interval(
         id='graph-update',
         interval=120000),
     ], className="container",style={'width':'98%','margin-left':10,'margin-right':10,'max-width':50000})
-    
+
+   
 @app.callback(
-    dash.dependencies.Output('graphs','children'),
-    [dash.dependencies.Input('选择地图区域', 'value')])
+     Output('graphs','children'),
+    [Input('选择地图区域', 'value')])
 
 def update_graph(data_names):
     graphs = []
     df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
     
-    if len(data_names)>2:
-        class_choice = 'col s12 m6 l4'
-    elif len(data_names) == 2:
-        class_choice = 'col s12 m6 l6'
-    else:
-        class_choice = 'col s12'
-
-
-
     if "世界分布" in data_names:
         data, layout = graph_prep(geojson = world_geo, locations = df_World['code'],
                                   z = np.log10(df_World['确诊']), hovertext = df_World['text'],
@@ -273,7 +269,7 @@ def update_graph(data_names):
         
             
         graphs.append(html.Div(dcc.Graph(id="世界分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout}), className=class_choice))
+                                         figure={'data': [data],'layout' : layout})))
         
     if "中国分布" in data_names:
         data, layout = graph_prep(geojson = china_geo, locations = df_China['code'],
@@ -283,7 +279,7 @@ def update_graph(data_names):
         
             
         graphs.append(html.Div(dcc.Graph(id="中国分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout}), className=class_choice))
+                                         figure={'data': [data],'layout' : layout})))
         
     if "湖北分布" in data_names:
         data, layout = graph_prep(geojson = hubei_geo, locations = df_hubei['code'],
@@ -293,18 +289,9 @@ def update_graph(data_names):
         
             
         graphs.append(html.Div(dcc.Graph(id="湖北分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout}), className=class_choice))
+                                         figure={'data': [data],'layout' : layout})))
 
     return graphs
-
-
-external_css = ["https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css"]
-for css in external_css:
-    app.css.append_css({"external_url": css})
-
-external_js = ['https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js']
-for js in external_css:
-    app.scripts.append_script({'external_url': js})
 
 
 if __name__ == '__main__':
