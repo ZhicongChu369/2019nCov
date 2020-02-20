@@ -187,7 +187,7 @@ def update_obd_values(hubei_geo, china_geo, world_geo):
     return df_hubei, df_World, df_China, updatetime
 
 
-def graph_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, title, updatetime):
+def map_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, title, updatetime):
     
     # prepare token for Mapbox
     token = 'pk.eyJ1IjoiY2h1emhpY29uZyIsImEiOiJjazZoMG5tajIwNmh4M21ueGN0eXdtMmx6In0.kQscrYmKzfyLhN-YgENO0Q'
@@ -206,7 +206,7 @@ def graph_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, t
                                     ))
     
     layout = go.Layout(mapbox = {'accesstoken': token, 'center':{'lon' : center_lon, 'lat': center_lat},'zoom': zoom},
-                  margin={"r":1,"t":45,"l":45,"b":1}, title = '疫情地图 ' + title,
+                  margin={"r":1,"t":45,"l":45,"b":1}, title = '累计确诊' + title + '分布图',
                   annotations = [dict(
                       x=0.55,
                       y=0.03,
@@ -245,8 +245,7 @@ app.layout = html.Div([
                                  multi=False
                                  )
                     ]), width = 3 ) ),
-    dcc.Loading(id="loading-1", children=html.Div(id='graph-container'), type="default"),
-    html.Div( children=html.Div(id='graphs'), className='row'),
+    dcc.Loading(id="loading-1", children=html.Div( children=html.Div(id='graphs'), className='row'), type="default"),
     dcc.Interval(
         id='graph-update',
         interval=120000),
@@ -262,7 +261,7 @@ def update_graph(data_names):
     df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
     
     if "世界分布" in data_names:
-        data, layout = graph_prep(geojson = world_geo, locations = df_World['code'],
+        data, layout = map_prep(geojson = world_geo, locations = df_World['code'],
                                   z = np.log10(df_World['确诊']), hovertext = df_World['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
                                   zoom = 1, title = "世界", updatetime = updatetime)
@@ -272,7 +271,7 @@ def update_graph(data_names):
                                          figure={'data': [data],'layout' : layout})))
         
     if "中国分布" in data_names:
-        data, layout = graph_prep(geojson = china_geo, locations = df_China['code'],
+        data, layout = map_prep(geojson = china_geo, locations = df_China['code'],
                                   z = np.log10(df_China['确诊']), hovertext = df_China['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
                                   zoom = 2.6, title = "中国", updatetime = updatetime)
@@ -282,10 +281,10 @@ def update_graph(data_names):
                                          figure={'data': [data],'layout' : layout})))
         
     if "湖北分布" in data_names:
-        data, layout = graph_prep(geojson = hubei_geo, locations = df_hubei['code'],
+        data, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
                                   z = np.log10(df_hubei['确诊']), hovertext = df_hubei['text'],
                                   center_lon = 112.1994, center_lat = 31.0354,
-                                  zoom = 5, title = "湖北", updatetime = updatetime)
+                                  zoom = 5.5, title = "湖北", updatetime = updatetime)
         
             
         graphs.append(html.Div(dcc.Graph(id="湖北分布", animate=True, 
