@@ -13,6 +13,7 @@ import lxml.html as lh
 import pandas as pd
 import requests
 
+
 # scrap iso code table from wikipedia with beautifulsoup
 website_url = requests.get("https://zh.wikipedia.org/zh-cn/ISO_3166-1%E4%B8%89%E4%BD%8D%E5%AD%97%E6%AF%8D%E4%BB%A3%E7%A0%81").text
 soup = BeautifulSoup(website_url, 'lxml')
@@ -209,8 +210,9 @@ def map_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, tit
                       xref='paper',
                       yref='paper',
                       text='数据更新于 ' + str(updatetime),
-                      showarrow = False
-                 )])
+                      showarrow = False,
+                     ),
+        ],  height = 650, width = 1100)
         
     return data, layout
 
@@ -222,6 +224,31 @@ app = dash.Dash('2019nCov-data',  external_stylesheets=[dbc.themes.BOOTSTRAP])
 data_dict = {"世界分布": df_World, "中国分布": df_China, 
              "湖北分布": df_hubei}
 
+data, layout = map_prep(geojson = china_geo, locations = df_China['code'],
+                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
+                                  center_lon = 109.469607, center_lat = 37.826077,
+                                  zoom = 2.6, title = "中国", updatetime = updatetime)
+
+
+# Pie chart of Top k provinces with most confirmed cases
+# set value for k
+
+province_confirm = df_China[['省简称', '确诊']]
+province_confirm = province_confirm.sort_values(by = ['确诊'], ascending = False)
+k = 10
+
+# aggregate all the rest BGAs to "Other"
+other_province_confirm_sum = sum(province_confirm.iloc[k:, 1])
+labels_prov = list(province_confirm['省简称'][:k]) + ["其他"]
+values_prov = list(province_confirm['确诊']) + [other_province_confirm_sum ]
+
+data2 = go.Pie(labels=labels_prov, values=values_prov, textinfo='label+ percent' ) 
+layout2 = go.Layout( title={
+        'text': '确诊病例前10省市',
+        'y':0.1,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'}) 
 
 
 app.layout = html.Div([
@@ -241,53 +268,30 @@ app.layout = html.Div([
                                  multi=False
                                  )
                     ]), width = 3 ) ),
-    dcc.Loading(id="loading-1", children=html.Div( children=html.Div(id='graphs'), className='row'), type="default"),
-    dcc.Interval(
-        id='graph-update',
-        interval=120000),
-    ], className="container",style={'width':'98%','margin-left':10,'margin-right':10,'max-width':50000})
-
-   
-@app.callback(
-     Output('graphs','children'),
-    [Input('选择地图区域', 'value')])
-
-def update_graph(data_names):
-    graphs = []
-    df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
+                    
+   # dcc.Loading(id="loading-1", children=html.Div( children=html.Div(id='graphs'), className='row'), type="default"),
     
-    if "世界分布" in data_names:
-        data, layout = map_prep(geojson = world_geo, locations = df_World['code'],
-                                  z = np.log10(df_World['确诊']), hovertext = df_World['text'],
-                                  center_lon = 109.469607, center_lat = 37.826077,
-                                  zoom = 1, title = "世界", updatetime = updatetime)
-        
-            
-        graphs.append(html.Div(dcc.Graph(id="世界分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout})))
-        
-    if "中国分布" in data_names:
-        data, layout = map_prep(geojson = china_geo, locations = df_China['code'],
-                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
-                                  center_lon = 109.469607, center_lat = 37.826077,
-                                  zoom = 2.6, title = "中国", updatetime = updatetime)
-        
-            
-        graphs.append(html.Div(dcc.Graph(id="中国分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout})))
-        
-    if "湖北分布" in data_names:
-        data, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
-                                  z = np.log10(df_hubei['确诊']), hovertext = df_hubei['text'],
-                                  center_lon = 112.1994, center_lat = 31.0354,
-                                  zoom = 5.5, title = "湖北", updatetime = updatetime)
-        
-            
-        graphs.append(html.Div(dcc.Graph(id="湖北分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout})))
-
-    return graphs
-
+    html.Div([
+            dbc.Container(
+                    dbc.Row([
+                            dbc.Col(
+                                    html.Div([
+                                            dcc.Graph(id="中国分布", animate=True, 
+                                                      figure={'data': [data],'layout' : layout})
+                                            ]), width = 7
+                                    ),
+                                            
+                            dbc.Col(html.Div([
+                                            dcc.Graph(id = 'pie', animate = True,
+                                                      figure={'data': [data2],'layout' : layout2})
+                                            ]), width = 5 
+                            
+                                    )
+                             ])
+                    , fluid=True)
+            ])
+                                                                                          
+    ])
 
 if __name__ == '__main__':
     app.run_server(debug=True)
