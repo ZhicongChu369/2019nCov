@@ -199,6 +199,8 @@ def update_obd_values(hubei_geo, china_geo, world_geo):
                            '孝感', '武汉', '黄石', '神农架林区', '天门', '仙桃', '潜江', '鄂州']
     df_hubei = df_hubei.merge(df_city_code, how = 'left', on = '城市')
     
+    # sort by confirmed cases 
+    df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
     # set up hovertext
     text = [ df_hubei['城市'][i] + '\n' +  str(df_hubei['确诊'][i]) + '例确诊'  for i in range(len(df_hubei))]
     df_hubei['text'] = text
@@ -233,7 +235,7 @@ def map_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, tit
                       yref='paper',
                       text='数据更新于 ' + str(updatetime),
                       showarrow = False
-                 )])
+                 )], height =500 )
         
     return data, layout
 
@@ -270,6 +272,19 @@ with urlopen('https://raw.githubusercontent.com/longwosion/geojson-map-china/mas
 
 
 df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
+# sort by confirmed cases 
+df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
+
+
+
+
+
+# map for confirmed cases in China
+
+data1, layout1 = map_prep(geojson = china_geo, locations = df_China['code'],
+                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
+                                  center_lon = 109.469607, center_lat = 37.826077,
+                                  zoom = 2.6, title = "中国", updatetime = updatetime)
 
 
 # Pie chart of Top k provinces with most confirmed cases
@@ -282,15 +297,15 @@ k = 10
 # aggregate all the rest BGAs to "Other"
 other_province_confirm_sum = sum(province_confirm.iloc[k:, 1])
 labels_prov = list(province_confirm['省简称'][:k]) + ["其他"]
-values_prov = list(province_confirm['确诊']) + [other_province_confirm_sum ]
+values_prov = list(province_confirm['确诊'][:k]) + [other_province_confirm_sum ]
 
 data2 = go.Pie(labels=labels_prov, values=values_prov, textinfo='label+ percent' ) 
 layout2 = go.Layout( title={
         'text': '确诊病例前10省市',
-        'y':0.1,
+        'y':0.98,
         'x':0.5,
         'xanchor': 'center',
-        'yanchor': 'top'}, height = 700) 
+        'yanchor': 'top'},  margin={"r":30,"t":40,"l":40,"b":30}, height = 500) 
 
 
 
@@ -317,12 +332,12 @@ data3 = go.Bar(
 
 
 layout3 =go.Layout(title={ 'text' : '湖北城市确诊数柱状图',
-                          'y':0.98,
+                          'y':0.92,
                           'x':0.5,
                           'xanchor': 'center',
-                          'yanchor': 'top'}, margin={"r":0,"t":40,"l":0,"b":0},
+                          'yanchor': 'top'}, margin={"r":30,"t":30,"l":60,"b":80},
                    yaxis_title_text='确诊数',
-                   font=dict(size=13), height = 500, width = 980, 
+                   height = 400, 
                    yaxis = dict(type = 'log') )
 
 
@@ -332,22 +347,23 @@ layout3 =go.Layout(title={ 'text' : '湖北城市确诊数柱状图',
 
 trace0 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['确诊'], name = '确诊病例', mode='lines+markers')
 trace1 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['疑似'], name = '疑似病例', mode='lines+markers')
-trace2 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['死亡'], name = '死亡病例', mode='lines+markers')
-trace3 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['治愈'], name = '治愈病例', mode='lines+markers')
+trace2 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['治愈'], name = '治愈病例', mode='lines+markers')
+trace3 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['死亡'], name = '死亡病例', mode='lines+markers')
 
 data4 = [trace0, trace1, trace2, trace3]
-layout4 =go.Layout(title={ 'text' : '病例数时间走势图',
-                          'y':0.98,
+layout4 =go.Layout(title={ 'text' : '全国病例数时间走势图',
+                          'y':0.92,
                           'x':0.5,
                           'xanchor': 'center',
-                          'yanchor': 'top'}, margin={"r":0,"t":40,"l":0,"b":0},
+                          'yanchor': 'top'}, margin={"r":30,"t":80,"l":80,"b":80},
                    yaxis_title_text='病例数',
                    xaxis_title_text='时间',
-                   font=dict(size=13), height = 500, width = 980 )
+                   height = 400 )
 
+map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
 pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
 bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
-line = dcc.Graph(id = 'line', animate=True, figure= {'data': [data4], 'layout': layout4})
+line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
 
 
 app = dash.Dash('2019nCov-data',  external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -374,11 +390,18 @@ Dropdown = dbc.Row( dbc.Col(
                                  )
                     ]), width = 3 ) )
                     
-Graphs = html.Div( children = html.Div( id="map_dist"))  
+# =============================================================================
+# Graphs = html.Div( children = html.Div( id="map_dist"))  
+# =============================================================================
 
-Loading = dcc.Loading(id="loading-1", children= [html.Div(id="output-1")], type="default")
+Loading = dcc.Loading(id="loading-1", children= [html.Div(id="loading-output-1")], type="default")
 
-          
+
+graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
+graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
+
+Graphs= html.Div([graphRow1, graphRow2], id = 'graphs')
+           
 
 app.layout = html.Div([ Title, Dropdown, Loading, Graphs])
     
@@ -390,9 +413,11 @@ app.layout = html.Div([ Title, Dropdown, Loading, Graphs])
 # =============================================================================
 
    
-@app.callback(
-     Output('map_dist','children'),
-    [Input('选择地图区域', 'value')])
+# =============================================================================
+# @app.callback(
+#      Output('graphs','children'),
+#     [Input('选择地图区域', 'value')])
+# =============================================================================
 
 def update_graph(data_names):
 # =============================================================================
