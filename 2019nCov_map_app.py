@@ -13,35 +13,6 @@ import lxml.html as lh
 import pandas as pd
 import requests
 
-# scrap iso code table from wikipedia with beautifulsoup
-website_url = requests.get("https://zh.wikipedia.org/zh-cn/ISO_3166-1%E4%B8%89%E4%BD%8D%E5%AD%97%E6%AF%8D%E4%BB%A3%E7%A0%81").text
-soup = BeautifulSoup(website_url, 'lxml')
-table = soup.find('table')
-table_rows = table.find_all('tr')[1:]
-
-country, code = [], []
-for tr in table_rows:
-    td = tr.find_all('td')
-    row = [i.text for i in td]
-    code.append(row[0])
-    country.append(row[1][1:])
-    
-index = country.index('中国台湾省[注 1]')
-country[index] = '中国台湾省'
-
-# store info in a pandas df
-df_iso = pd.DataFrame({'国家': country, 'code': code})
-
-# load map file
-with urlopen('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json') as response:
-    world_geo = json.load(response)
-# load map file
-with urlopen('https://raw.githubusercontent.com/johan/world.geo.json/6a1119de83dad01e07524e2ab97c2a1f54b9ef53/countries/CHN.geo.json') as response:
-    china_geo = json.load(response)
-# load map file
-with urlopen('https://raw.githubusercontent.com/longwosion/geojson-map-china/master/geometryProvince/42.json') as response:
-    hubei_geo = json.load(response)
-
 # use API to retrieve hubei cities data
 def hubei_retrieve():
     
@@ -133,9 +104,61 @@ def world_china_retrieve():
     
     return df_World, df_China, updatetime
 
+
+
+def overall__retrieve():
+    # time series summary stats
+    response = requests.get("https://lab.isaaclin.cn/nCoV/api/overall?latest=0")
+    # verify everything went okay, and the result has been returned
+    assert response.status_code == 200
+    raw_series_json = response.json()['results']
+    
+    confirmedCount, suspectedCount, curedCount, deadCount, seriousCount, \
+    suspectedIncr, confirmedIncr, curedIncr, deadIncr, seriousIncr, updateTime, update_date \
+    = [], [], [], [], [], [], [], [], [], [], [], []
+    
+    for i in range(len(raw_series_json)):
+        confirmedCount.append(raw_series_json[i]['confirmedCount'])
+        suspectedCount.append(raw_series_json[i]['suspectedCount'])
+        curedCount.append(raw_series_json[i]['curedCount'])
+        deadCount.append(raw_series_json[i]['deadCount'])
+        updateTime.append(raw_series_json[i]['updateTime'])
+        update_date.append(dt.fromtimestamp(raw_series_json[i]['updateTime']/1000).date())
+        
+        if 'seriousCount' in raw_series_json[i].keys():
+            seriousCount.append(raw_series_json[i]['seriousCount'])
+        else:
+            seriousCount.append( np.nan )
+        
+        if 'suspectedIncr' in raw_series_json[i].keys():
+            suspectedIncr.append(raw_series_json[i]['suspectedIncr'])
+            confirmedIncr.append(raw_series_json[i]['confirmedIncr'])
+            curedIncr.append(raw_series_json[i]['curedIncr'])
+            deadIncr.append(raw_series_json[i]['deadIncr'])
+            seriousIncr.append(raw_series_json[i]['seriousIncr'])
+            
+        else:
+            suspectedIncr.append( np.nan )
+            confirmedIncr.append( np.nan )
+            curedIncr.append( np.nan )
+            deadIncr.append( np.nan )
+            seriousIncr.append( np.nan )
+      
+    df_time = pd.DataFrame({'确诊':confirmedCount, '疑似': suspectedCount, '治愈':curedCount,
+                            '死亡':deadCount, '重症':seriousCount, '疑似增数':suspectedIncr,
+                            '确诊增数':confirmedIncr, '治愈增数':curedIncr, '死亡增数':deadIncr,
+                            '重症增数':seriousIncr, '更新时间值':updateTime, '更新日': update_date}) 
+    
+    df_time_agg = df_time.drop_duplicates(subset = '更新日', keep = 'first')
+    
+    return df_time_agg
+    
+     
+    
 def update_obd_values(hubei_geo, china_geo, world_geo):
     df_hubei = hubei_retrieve()
     df_World, df_China, updatetime = world_china_retrieve()
+    df_time_agg = overall__retrieve()
     
     # set up hovertext
     text = [ df_World['国家'][i] + '\n' +  str(df_World['确诊'][i]) + '例确诊'  for i in range(len(df_World))]
@@ -180,7 +203,7 @@ def update_obd_values(hubei_geo, china_geo, world_geo):
     text = [ df_hubei['城市'][i] + '\n' +  str(df_hubei['确诊'][i]) + '例确诊'  for i in range(len(df_hubei))]
     df_hubei['text'] = text
     
-    return df_hubei, df_World, df_China, updatetime
+    return df_hubei, df_World, df_China, updatetime, df_time_agg
 
 
 def map_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, title, updatetime):
@@ -215,7 +238,117 @@ def map_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, tit
     return data, layout
 
 
-df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
+
+# scrap iso code table from wikipedia with beautifulsoup
+website_url = requests.get("https://zh.wikipedia.org/zh-cn/ISO_3166-1%E4%B8%89%E4%BD%8D%E5%AD%97%E6%AF%8D%E4%BB%A3%E7%A0%81").text
+soup = BeautifulSoup(website_url, 'lxml')
+table = soup.find('table')
+table_rows = table.find_all('tr')[1:]
+
+country, code = [], []
+for tr in table_rows:
+    td = tr.find_all('td')
+    row = [i.text for i in td]
+    code.append(row[0])
+    country.append(row[1][1:])
+    
+index = country.index('中国台湾省[注 1]')
+country[index] = '中国台湾省'
+
+# store info in a pandas df
+df_iso = pd.DataFrame({'国家': country, 'code': code})
+
+# load map file
+with urlopen('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json') as response:
+    world_geo = json.load(response)
+# load map file
+with urlopen('https://raw.githubusercontent.com/johan/world.geo.json/6a1119de83dad01e07524e2ab97c2a1f54b9ef53/countries/CHN.geo.json') as response:
+    china_geo = json.load(response)
+# load map file
+with urlopen('https://raw.githubusercontent.com/longwosion/geojson-map-china/master/geometryProvince/42.json') as response:
+    hubei_geo = json.load(response)
+
+
+df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
+
+
+# Pie chart of Top k provinces with most confirmed cases
+# set value for k
+
+province_confirm = df_China[['省简称', '确诊']]
+province_confirm = province_confirm.sort_values(by = ['确诊'], ascending = False)
+k = 10
+
+# aggregate all the rest BGAs to "Other"
+other_province_confirm_sum = sum(province_confirm.iloc[k:, 1])
+labels_prov = list(province_confirm['省简称'][:k]) + ["其他"]
+values_prov = list(province_confirm['确诊']) + [other_province_confirm_sum ]
+
+data2 = go.Pie(labels=labels_prov, values=values_prov, textinfo='label+ percent' ) 
+layout2 = go.Layout( title={
+        'text': '确诊病例前10省市',
+        'y':0.1,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'}, height = 700) 
+
+
+
+# Bar charts for city data in Hubei
+
+# create hover txt
+hovertxt = [ str(int(x)) +'确诊' +  '<br>'  +   str(int(y)) + '死亡'  +  '<br>'  +   str(int(z)) + '治愈' \
+            for (x, y, z) in zip(df_hubei['确诊'], df_hubei['死亡'], df_hubei['治愈'])]
+
+data3 = go.Bar( 
+    x = df_hubei['城市'],
+    y = df_hubei['确诊'],
+    hoverinfo = 'x+text',
+    hovertext = hovertxt,
+    marker={'color': np.log10(df_hubei['死亡']),
+            'colorscale' : 'Reds',
+            'showscale': True,
+            'colorbar.title': '死亡病例',
+            'colorbar.tickmode':"array",
+            'colorbar.tickvals': np.arange(0, 5, 1),
+            'colorbar.ticktext': ["1", "10", "100", "1k", '10k'],
+            } 
+)
+
+
+layout3 =go.Layout(title={ 'text' : '湖北城市确诊数柱状图',
+                          'y':0.98,
+                          'x':0.5,
+                          'xanchor': 'center',
+                          'yanchor': 'top'}, margin={"r":0,"t":40,"l":0,"b":0},
+                   yaxis_title_text='确诊数',
+                   font=dict(size=13), height = 500, width = 980, 
+                   yaxis = dict(type = 'log') )
+
+
+
+
+# line chart for confirmed suspected death and cured cases
+
+trace0 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['确诊'], name = '确诊病例', mode='lines+markers')
+trace1 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['疑似'], name = '疑似病例', mode='lines+markers')
+trace2 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['死亡'], name = '死亡病例', mode='lines+markers')
+trace3 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['治愈'], name = '治愈病例', mode='lines+markers')
+
+data4 = [trace0, trace1, trace2, trace3]
+layout4 =go.Layout(title={ 'text' : '病例数时间走势图',
+                          'y':0.98,
+                          'x':0.5,
+                          'xanchor': 'center',
+                          'yanchor': 'top'}, margin={"r":0,"t":40,"l":0,"b":0},
+                   yaxis_title_text='病例数',
+                   xaxis_title_text='时间',
+                   font=dict(size=13), height = 500, width = 980 )
+
+pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
+bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
+line = dcc.Graph(id = 'line', animate=True, figure= {'data': [data4], 'layout': layout4})
+
 
 app = dash.Dash('2019nCov-data',  external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -223,16 +356,15 @@ data_dict = {"世界分布": df_World, "中国分布": df_China,
              "湖北分布": df_hubei}
 
 
-
-app.layout = html.Div([
-    dbc.Row( dbc.Col(
+# arrange app layout
+Title =  dbc.Row( dbc.Col(
             html.Div([
                     html.H2('疫情地图',
-                            style={'float': 'left',
+                            style={'float': 'right',
                                    }),
-        ]), width = 6)),
-        
-    dbc.Row( dbc.Col(
+        ]), width = 6))
+
+Dropdown = dbc.Row( dbc.Col(
             html.Div([
                     dcc.Dropdown(id='选择地图区域',
                                  options=[{'label': s, 'value': s}
@@ -240,21 +372,33 @@ app.layout = html.Div([
                                  value="中国分布",
                                  multi=False
                                  )
-                    ]), width = 3 ) ),
-    dcc.Loading(id="loading-1", children=html.Div( children=html.Div(id='graphs'), className='row'), type="default"),
-    dcc.Interval(
-        id='graph-update',
-        interval=120000),
-    ], className="container",style={'width':'98%','margin-left':10,'margin-right':10,'max-width':50000})
+                    ]), width = 3 ) )
+                    
+Graphs = html.Div( children = html.Div( id="map_dist"))  
+
+Loading = dcc.Loading(id="loading-1", children= [html.Div(id="output-1")], type="default")
+
+          
+
+app.layout = html.Div([ Title, Dropdown, Loading, Graphs])
+    
+# =============================================================================
+# dcc.Interval(
+#     id='graph-update',
+#     interval=120000),
+# ], className="container",style={'width':'98%','margin-left':10,'margin-right':10,'max-width':50000})
+# =============================================================================
 
    
 @app.callback(
-     Output('graphs','children'),
+     Output('map_dist','children'),
     [Input('选择地图区域', 'value')])
 
 def update_graph(data_names):
-    graphs = []
-    df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
+# =============================================================================
+#     graphs = []
+#     df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
+# =============================================================================
     
     if "世界分布" in data_names:
         data, layout = map_prep(geojson = world_geo, locations = df_World['code'],
@@ -263,8 +407,7 @@ def update_graph(data_names):
                                   zoom = 1, title = "世界", updatetime = updatetime)
         
             
-        graphs.append(html.Div(dcc.Graph(id="世界分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout})))
+        map_dist =  dcc.Graph(id="世界分布", animate=True, figure={'data': [data],'layout' : layout})
         
     if "中国分布" in data_names:
         data, layout = map_prep(geojson = china_geo, locations = df_China['code'],
@@ -273,8 +416,7 @@ def update_graph(data_names):
                                   zoom = 2.6, title = "中国", updatetime = updatetime)
         
             
-        graphs.append(html.Div(dcc.Graph(id="中国分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout})))
+        map_dist= dcc.Graph(id="中国分布", animate=True, figure={'data': [data],'layout' : layout})
         
     if "湖北分布" in data_names:
         data, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
@@ -283,10 +425,9 @@ def update_graph(data_names):
                                   zoom = 5.5, title = "湖北", updatetime = updatetime)
         
             
-        graphs.append(html.Div(dcc.Graph(id="湖北分布", animate=True, 
-                                         figure={'data': [data],'layout' : layout})))
+        map_dist = dcc.Graph(id="湖北分布", animate=True, figure={'data': [data],'layout' : layout})
 
-    return graphs
+    return map_dist
 
 
 if __name__ == '__main__':
