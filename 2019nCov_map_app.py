@@ -373,22 +373,37 @@ data_dict = {"世界分布": df_World, "中国分布": df_China,
 
 
 # arrange app layout
-Title =  dbc.Row( dbc.Col(
-            html.Div([
+Title =  dbc.Row( [dbc.Col(
                     html.H2('疫情地图',
                             style={'float': 'right',
-                                   }),
-        ]), width = 6))
+                                   }
+                            ), width = 6
+                          ),
+                  dbc.Col(
+                    html.Img(
+                            src = 'https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcTsIw6JB33EyGMmepsH2jbA_IJnPb2Bnj6WnlSslZV4IB_fFIs8',
+                            style = {
+                                    'height': '44%',
+                                    'width' : '20%',
+                                    'float' : 'right',
+                                    'position' : 'relative',
+                                    'margin-right' : 120,
+                                    'margin-top' : 20 },
+                            ), width = 6      
+                          
+                          )]
+                )
+                    
 
 Dropdown = dbc.Row( dbc.Col(
-            html.Div([
                     dcc.Dropdown(id='选择地图区域',
                                  options=[{'label': s, 'value': s}
                                           for s in data_dict.keys()],
                                  value="中国分布",
-                                 multi=False
-                                 )
-                    ]), width = 3 ) )
+                                 multi=False,
+                                 style = {'margin-left' : 25}
+                                 ), width = 3 )
+                    )
                     
 # =============================================================================
 # Graphs = html.Div( children = html.Div( id="map_dist"))  
