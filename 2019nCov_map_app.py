@@ -360,7 +360,7 @@ layout4 =go.Layout(title={ 'text' : '全国病例数时间走势图',
                    xaxis_title_text='时间',
                    height = 450 )
 
-map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
+map_dist = dcc.Graph(id = 'map_dist')
 pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
 bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
 line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
@@ -431,46 +431,39 @@ app.layout = html.Div([ Title, Dropdown, Loading, Graphs])
 # =============================================================================
 
    
-# =============================================================================
-# @app.callback(
-#      Output('graphs','children'),
-#     [Input('选择地图区域', 'value')])
-# =============================================================================
+@app.callback(
+     Output('map_dist','figure'),
+    [Input('选择地图区域', 'value')])
 
-def update_graph(data_names):
+def update_graph( selected_item ):
 # =============================================================================
-#     graphs = []
-#     df_hubei, df_World, df_China, updatetime = update_obd_values(hubei_geo, china_geo, world_geo)
+#     df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
 # =============================================================================
     
-    if "世界分布" in data_names:
-        data, layout = map_prep(geojson = world_geo, locations = df_World['code'],
+    if  selected_item == "世界分布":
+        data_, layout = map_prep(geojson = world_geo, locations = df_World['code'],
                                   z = np.log10(df_World['确诊']), hovertext = df_World['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
                                   zoom = 1, title = "世界", updatetime = updatetime)
         
-            
-        map_dist =  dcc.Graph(id="世界分布", animate=True, figure={'data': [data],'layout' : layout})
         
-    if "中国分布" in data_names:
-        data, layout = map_prep(geojson = china_geo, locations = df_China['code'],
+    elif  selected_item == "中国分布" :
+        data_, layout = map_prep(geojson = china_geo, locations = df_China['code'],
                                   z = np.log10(df_China['确诊']), hovertext = df_China['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
-                                  zoom = 2.8, title = "中国", updatetime = updatetime)
+                                  zoom = 2.6, title = "中国", updatetime = updatetime)
         
-            
-        map_dist= dcc.Graph(id="中国分布", animate=True, figure={'data': [data],'layout' : layout})
         
-    if "湖北分布" in data_names:
-        data, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
+    else:
+        data_, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
                                   z = np.log10(df_hubei['确诊']), hovertext = df_hubei['text'],
                                   center_lon = 112.1994, center_lat = 31.0354,
-                                  zoom = 5.5, title = "湖北", updatetime = updatetime)
+                                  zoom = 5.8, title = "湖北", updatetime = updatetime)
         
             
-        map_dist = dcc.Graph(id="湖北分布", animate=True, figure={'data': [data],'layout' : layout})
-
-    return map_dist
+    map_figure ={'data': [data_],'layout' : layout}
+        
+    return map_figure
 
 
 if __name__ == '__main__':
