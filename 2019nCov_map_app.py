@@ -227,7 +227,7 @@ def map_prep(geojson, locations, z, hovertext, center_lon, center_lat, zoom, tit
                                     ))
     
     layout = go.Layout(mapbox = {'accesstoken': token, 'center':{'lon' : center_lon, 'lat': center_lat},'zoom': zoom},
-                  margin={"r":1,"t":45,"l":45,"b":1}, title = '累计确诊' + title + '分布图',
+                  margin={"r":1,"t":45,"l":45,"b":30}, title = '累计确诊' + title + '分布图',
                   annotations = [dict(
                       x=0.55,
                       y=0.03,
@@ -337,7 +337,7 @@ layout3 =go.Layout(title={ 'text' : '湖北城市确诊数柱状图',
                           'xanchor': 'center',
                           'yanchor': 'top'}, margin={"r":30,"t":30,"l":60,"b":80},
                    yaxis_title_text='确诊数',
-                   height = 400, 
+                   height = 450, 
                    yaxis = dict(type = 'log') )
 
 
@@ -358,7 +358,7 @@ layout4 =go.Layout(title={ 'text' : '全国病例数时间走势图',
                           'yanchor': 'top'}, margin={"r":30,"t":80,"l":80,"b":80},
                    yaxis_title_text='病例数',
                    xaxis_title_text='时间',
-                   height = 400 )
+                   height = 450 )
 
 map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
 pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
@@ -400,6 +400,9 @@ Loading = dcc.Loading(id="loading-1", children= [html.Div(id="loading-output-1")
 graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
 graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
 
+# =============================================================================
+# bc_img_link = 'https://www.eehealth.org/-/media/images/modules/blog/posts/2020/01/2019-novel-coronavirus.jpg'
+# =============================================================================
 Graphs= html.Div([graphRow1, graphRow2], id = 'graphs')
            
 
@@ -438,7 +441,7 @@ def update_graph(data_names):
         data, layout = map_prep(geojson = china_geo, locations = df_China['code'],
                                   z = np.log10(df_China['确诊']), hovertext = df_China['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
-                                  zoom = 2.6, title = "中国", updatetime = updatetime)
+                                  zoom = 2.8, title = "中国", updatetime = updatetime)
         
             
         map_dist= dcc.Graph(id="中国分布", animate=True, figure={'data': [data],'layout' : layout})
