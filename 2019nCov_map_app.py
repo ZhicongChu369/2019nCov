@@ -199,11 +199,12 @@ def update_obd_values(hubei_geo, china_geo, world_geo):
                            '孝感', '武汉', '黄石', '神农架林区', '天门', '仙桃', '潜江', '鄂州']
     df_hubei = df_hubei.merge(df_city_code, how = 'left', on = '城市')
     
-    # sort by confirmed cases 
-    df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
     # set up hovertext
     text = [ df_hubei['城市'][i] + '\n' +  str(df_hubei['确诊'][i]) + '例确诊'  for i in range(len(df_hubei))]
     df_hubei['text'] = text
+    
+     # sort by confirmed cases 
+    df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
     
     return df_hubei, df_World, df_China, updatetime, df_time_agg
 
@@ -405,23 +406,13 @@ Dropdown = dbc.Row( dbc.Col(
                                  ), width = 3 )
                     )
                     
-# =============================================================================
-# Graphs = html.Div( children = html.Div( id="map_dist"))  
-# =============================================================================
-
-Loading = dcc.Loading(id="loading-1", children= [html.Div(id="loading-output-1")], type="default")
-
-
+                   
 graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
 graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
 
-# =============================================================================
-# bc_img_link = 'https://www.eehealth.org/-/media/images/modules/blog/posts/2020/01/2019-novel-coronavirus.jpg'
-# =============================================================================
-Graphs= html.Div([graphRow1, graphRow2], id = 'graphs')
-           
-
-app.layout = html.Div([ Title, Dropdown, Loading, Graphs])
+Loading = dcc.Loading(id="loading-1", children= [html.Div([graphRow1, graphRow2], id = 'graphs')], type="default")
+         
+app.layout = html.Div([ Title, Dropdown, Loading])
     
 # =============================================================================
 # dcc.Interval(
