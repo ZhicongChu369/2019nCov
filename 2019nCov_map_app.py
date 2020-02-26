@@ -17,7 +17,7 @@ import requests
 def hubei_retrieve():
     
     # allow for 10 retreive attemps max
-    for i in range(10):
+    for i in range(20):
         response = requests.get("https://lab.isaaclin.cn/nCoV/api/area?latest=1&province=湖北省")
         if response.status_code == 200:
             break
@@ -44,7 +44,7 @@ def hubei_retrieve():
 def world_china_retrieve():
     
     # allow for 10 retreive attemps max
-    for i in range(10):
+    for i in range(20):
         response = requests.get("https://lab.isaaclin.cn/nCoV/api/area?latest=1")
         if response.status_code == 200:
             break
@@ -74,7 +74,7 @@ def world_china_retrieve():
     df_World = df_raw.loc[df_raw['国家'] != '中国', ['国家','确诊','疑似', '治愈', '死亡']]
     
     # allow for 10 retreive attemps max
-    for i in range(10):
+    for i in range(20):
         response = requests.get("https://lab.isaaclin.cn/nCoV/api/overall")
         if response.status_code == 200:
             break
@@ -282,84 +282,122 @@ df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
 
 # map for confirmed cases in China
 
-data1, layout1 = map_prep(geojson = china_geo, locations = df_China['code'],
+def draw_map( selected_item = "中国分布" ):
+    
+    if  selected_item == "世界分布":
+        data_, layout = map_prep(geojson = world_geo, locations = df_World['code'],
+                                  z = np.log10(df_World['确诊']), hovertext = df_World['text'],
+                                  center_lon = 109.469607, center_lat = 37.826077,
+                                  zoom = 1, title = "世界", updatetime = updatetime)
+        
+        
+    elif  selected_item == "中国分布" :
+        data_, layout = map_prep(geojson = china_geo, locations = df_China['code'],
                                   z = np.log10(df_China['确诊']), hovertext = df_China['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
                                   zoom = 2.6, title = "中国", updatetime = updatetime)
+        
+        
+    else:
+        data_, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
+                                  z = np.log10(df_hubei['确诊']), hovertext = df_hubei['text'],
+                                  center_lon = 112.1994, center_lat = 31.0354,
+                                  zoom = 5.8, title = "湖北", updatetime = updatetime)
+            
+    return data_, layout
+
 
 
 # Pie chart of Top k provinces with most confirmed cases
 # set value for k
 
-province_confirm = df_China[['省简称', '确诊']]
-province_confirm = province_confirm.sort_values(by = ['确诊'], ascending = False)
-k = 10
-
-# aggregate all the rest BGAs to "Other"
-other_province_confirm_sum = sum(province_confirm.iloc[k:, 1])
-labels_prov = list(province_confirm['省简称'][:k]) + ["其他"]
-values_prov = list(province_confirm['确诊'][:k]) + [other_province_confirm_sum ]
-
-data2 = go.Pie(labels=labels_prov, values=values_prov, textinfo='label+ percent' ) 
-layout2 = go.Layout( title={
-        'text': '确诊病例前10省市',
-        'y':0.98,
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'},  margin={"r":30,"t":40,"l":40,"b":30}, height = 500) 
-
+def draw_pie():
+    province_confirm = df_China[['省简称', '确诊']]
+    province_confirm = province_confirm.sort_values(by = ['确诊'], ascending = False)
+    k = 10
+    
+    # aggregate all the rest BGAs to "Other"
+    other_province_confirm_sum = sum(province_confirm.iloc[k:, 1])
+    labels_prov = list(province_confirm['省简称'][:k]) + ["其他"]
+    values_prov = list(province_confirm['确诊'][:k]) + [other_province_confirm_sum ]
+    
+    data_ = go.Pie(labels=labels_prov, values=values_prov, textinfo='label+ percent' ) 
+    layout = go.Layout( title={
+            'text': '确诊病例前10省市',
+            'y':0.98,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'},  margin={"r":30,"t":40,"l":40,"b":30}, height = 500) 
+        
+    return data_, layout
 
 
 # Bar charts for city data in Hubei
 
-# create hover txt
-hovertxt = [ str(int(x)) +'确诊' +  '<br>'  +   str(int(y)) + '死亡'  +  '<br>'  +   str(int(z)) + '治愈' \
-            for (x, y, z) in zip(df_hubei['确诊'], df_hubei['死亡'], df_hubei['治愈'])]
 
-data3 = go.Bar( 
-    x = df_hubei['城市'],
-    y = df_hubei['确诊'],
-    hoverinfo = 'x+text',
-    hovertext = hovertxt,
-    marker={'color': np.log10(df_hubei['死亡']),
-            'colorscale' : 'Reds',
-            'showscale': True,
-            'colorbar.title': '死亡病例',
-            'colorbar.tickmode':"array",
-            'colorbar.tickvals': np.arange(0, 5, 1),
-            'colorbar.ticktext': ["1", "10", "100", "1k", '10k'],
-            } 
-)
+def draw_bar():
+    
+    # create hover txt
+    hovertxt = [ str(int(x)) +'确诊' +  '<br>'  +   str(int(y)) + '死亡'  +  '<br>'  +   str(int(z)) + '治愈' \
+                for (x, y, z) in zip(df_hubei['确诊'], df_hubei['死亡'], df_hubei['治愈'])]
+    
+    data_ = go.Bar( 
+        x = df_hubei['城市'],
+        y = df_hubei['确诊'],
+        hoverinfo = 'x+text',
+        hovertext = hovertxt,
+        marker={'color': np.log10(df_hubei['死亡']),
+                'colorscale' : 'Reds',
+                'showscale': True,
+                'colorbar.title': '死亡病例',
+                'colorbar.tickmode':"array",
+                'colorbar.tickvals': np.arange(0, 5, 1),
+                'colorbar.ticktext': ["1", "10", "100", "1k", '10k'],
+                } 
+    )
+    
+    
+    layout =go.Layout(title={ 'text' : '湖北城市确诊数柱状图',
+                              'y':0.92,
+                              'x':0.5,
+                              'xanchor': 'center',
+                              'yanchor': 'top'}, margin={"r":30,"t":30,"l":60,"b":80},
+                       yaxis_title_text='确诊数',
+                       height = 450, 
+                       yaxis = dict(type = 'log') )
+    
+    return data_, layout
 
-
-layout3 =go.Layout(title={ 'text' : '湖北城市确诊数柱状图',
-                          'y':0.92,
-                          'x':0.5,
-                          'xanchor': 'center',
-                          'yanchor': 'top'}, margin={"r":30,"t":30,"l":60,"b":80},
-                   yaxis_title_text='确诊数',
-                   height = 450, 
-                   yaxis = dict(type = 'log') )
 
 
 
 
 # line chart for confirmed suspected death and cured cases
 
-trace0 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['确诊'], name = '确诊病例', mode='lines+markers')
-trace1 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['疑似'], name = '疑似病例', mode='lines+markers')
-trace2 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['治愈'], name = '治愈病例', mode='lines+markers')
-trace3 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['死亡'], name = '死亡病例', mode='lines+markers')
+def draw_line():
+    
+    trace0 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['确诊'], name = '确诊病例', mode='lines+markers')
+    trace1 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['疑似'], name = '疑似病例', mode='lines+markers')
+    trace2 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['治愈'], name = '治愈病例', mode='lines+markers')
+    trace3 = go.Scatter(x = df_time_agg['更新日'], y = df_time_agg['死亡'], name = '死亡病例', mode='lines+markers')
+    
+    data_ = [trace0, trace1, trace2, trace3]
+    layout =go.Layout(title={ 'text' : '全国病例数时间走势图',
+                              'y':0.92,
+                              'x':0.5,
+                              'xanchor': 'center',
+                              'yanchor': 'top'}, margin={"r":30,"t":80,"l":80,"b":80},
+                       yaxis_title_text='病例数',
+                       xaxis_title_text='时间',
+                       height = 450 )
+    
+    return data_, layout
 
-data4 = [trace0, trace1, trace2, trace3]
-layout4 =go.Layout(title={ 'text' : '全国病例数时间走势图',
-                          'y':0.92,
-                          'x':0.5,
-                          'xanchor': 'center',
-                          'yanchor': 'top'}, margin={"r":30,"t":80,"l":80,"b":80},
-                   yaxis_title_text='病例数',
-                   xaxis_title_text='时间',
-                   height = 450 )
+
+data1, layout1 = draw_map()
+data2, layout2 = draw_pie()
+data3, layout3 = draw_bar()
+data4, layout4 = draw_line()
 
 map_dist = dcc.Graph(id = 'map_dist')
 pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
@@ -409,53 +447,35 @@ Dropdown = dbc.Row( dbc.Col(
                    
 graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
 graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
+Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
 
-Loading = dcc.Loading(id="loading-1", children= [html.Div([graphRow1, graphRow2], id = 'graphs')], type="default")
-         
-app.layout = html.Div([ Title, Dropdown, Loading])
+Loading = dcc.Loading(id="loading-1", children= Graphs , type="default")
+Interval = dcc.Interval( id='interval-component', interval=60000) 
+app.layout = html.Div([ Title, Dropdown, Loading, Interval])
     
-# =============================================================================
-# dcc.Interval(
-#     id='graph-update',
-#     interval=120000),
-# ], className="container",style={'width':'98%','margin-left':10,'margin-right':10,'max-width':50000})
-# =============================================================================
+
 
    
 @app.callback(
      Output('map_dist','figure'),
     [Input('选择地图区域', 'value')])
 
-def update_graph( selected_item ):
-# =============================================================================
-#     df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
-# =============================================================================
+def update_map( selected_item ):
     
-    if  selected_item == "世界分布":
-        data_, layout = map_prep(geojson = world_geo, locations = df_World['code'],
-                                  z = np.log10(df_World['确诊']), hovertext = df_World['text'],
-                                  center_lon = 109.469607, center_lat = 37.826077,
-                                  zoom = 1, title = "世界", updatetime = updatetime)
-        
-        
-    elif  selected_item == "中国分布" :
-        data_, layout = map_prep(geojson = china_geo, locations = df_China['code'],
-                                  z = np.log10(df_China['确诊']), hovertext = df_China['text'],
-                                  center_lon = 109.469607, center_lat = 37.826077,
-                                  zoom = 2.6, title = "中国", updatetime = updatetime)
-        
-        
-    else:
-        data_, layout = map_prep(geojson = hubei_geo, locations = df_hubei['code'],
-                                  z = np.log10(df_hubei['确诊']), hovertext = df_hubei['text'],
-                                  center_lon = 112.1994, center_lat = 31.0354,
-                                  zoom = 5.8, title = "湖北", updatetime = updatetime)
-        
-            
+    data_, layout = draw_map(selected_item)
     map_figure ={'data': [data_],'layout' : layout}
         
     return map_figure
 
+
+# =============================================================================
+# @app.callback(
+#      Output('bar','figure'),
+#     [Input( 'interval-component', 'n_intervals')])
+# def update_graphs(n):
+#     
+#     return {'data': [data3],'layout' : layout5}
+# =============================================================================
 
 if __name__ == '__main__':
     app.run_server(debug=True)
