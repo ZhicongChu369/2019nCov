@@ -399,7 +399,7 @@ data2, layout2 = draw_pie()
 data3, layout3 = draw_bar()
 data4, layout4 = draw_line()
 
-map_dist = dcc.Graph(id = 'map_dist')
+map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
 pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
 bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
 line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
@@ -450,7 +450,8 @@ graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
 Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
 
 Loading = dcc.Loading(id="loading-1", children= Graphs , type="default")
-Interval = dcc.Interval( id='interval-component', interval=60000) 
+# refresh every 6 hours 
+Interval = dcc.Interval( id='interval-component', interval=21600*1000) 
 app.layout = html.Div([ Title, Dropdown, Loading, Interval])
     
 
@@ -468,14 +469,30 @@ def update_map( selected_item ):
     return map_figure
 
 
-# =============================================================================
-# @app.callback(
-#      Output('bar','figure'),
-#     [Input( 'interval-component', 'n_intervals')])
-# def update_graphs(n):
-#     
-#     return {'data': [data3],'layout' : layout5}
-# =============================================================================
+@app.callback(
+     Output('loading-1','children'),
+    [Input( 'interval-component', 'n_intervals')])
+def update_graphs(n):
+    
+    df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
+    # sort by confirmed cases 
+    df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
+    
+    data1, layout1 = draw_map()
+    data2, layout2 = draw_pie()
+    data3, layout3 = draw_bar()
+    data4, layout4 = draw_line()
+    
+    map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
+    pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
+    bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
+    line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
+    
+    graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
+    graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
+    Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
+    
+    return Graphs
 
 if __name__ == '__main__':
     app.run_server(debug=True)
