@@ -9,7 +9,6 @@ import json
 from datetime import datetime as dt
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
-import lxml.html as lh
 import pandas as pd
 import requests
 
