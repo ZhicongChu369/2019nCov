@@ -1,4 +1,5 @@
 import dash
+from dash.exceptions import PreventUpdate
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
@@ -412,7 +413,7 @@ data_dict = {"世界分布": df_World, "中国分布": df_China,
 
 # arrange app layout
 Title =  dbc.Row( [dbc.Col(
-                    html.H2('疫情地图',
+                    html.H2('疫情追踪',
                             style={'float': 'right',
                                    }
                             ), width = 6
@@ -433,14 +434,17 @@ Title =  dbc.Row( [dbc.Col(
                 )
                     
 
-Dropdown = dbc.Row( dbc.Col(
+Dropdown = dbc.Row( [dbc.Col(
                     dcc.Dropdown(id='选择地图区域',
                                  options=[{'label': s, 'value': s}
                                           for s in data_dict.keys()],
                                  value="中国分布",
                                  multi=False,
                                  style = {'margin-left' : 25}
-                                 ), width = 3 )
+                                 ), width = 3 ),
+                    dbc.Col(
+                    html.Button('自动更新数据', id='button', n_clicks = 0,  style={'float': 'right'}), width = 2
+                    )]
                     )
                     
                    
@@ -470,28 +474,34 @@ def update_map( selected_item ):
 
 @app.callback(
      Output('loading-1','children'),
-    [Input( 'interval-component', 'n_intervals')])
-def update_graphs(n):
+    [Input('interval-component', 'n_intervals'),
+     Input('button', 'n_clicks')])
+def update_graphs( n, n_clicks):
     
-    df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
-    # sort by confirmed cases 
-    df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
+    # initialize the app with update off
+    if n_clicks == 0:
+        raise PreventUpdate
+        
+    else:
+        df_hubei, df_World, df_China, updatetime, df_time_agg = update_obd_values(hubei_geo, china_geo, world_geo)
+        # sort by confirmed cases 
+        df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
+        
+        data1, layout1 = draw_map()
+        data2, layout2 = draw_pie()
+        data3, layout3 = draw_bar()
+        data4, layout4 = draw_line()
+        
+        map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
+        pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
+        bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
+        line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
+        
+        graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
+        graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
+        Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
     
-    data1, layout1 = draw_map()
-    data2, layout2 = draw_pie()
-    data3, layout3 = draw_bar()
-    data4, layout4 = draw_line()
-    
-    map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
-    pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
-    bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
-    line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
-    
-    graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
-    graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
-    Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
-    
-    return Graphs
+        return Graphs
 
 if __name__ == '__main__':
     app.run_server(debug=True)
