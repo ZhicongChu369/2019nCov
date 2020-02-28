@@ -399,7 +399,7 @@ data2, layout2 = draw_pie()
 data3, layout3 = draw_bar()
 data4, layout4 = draw_line()
 
-map_dist = dcc.Graph(id = 'map_dist', animate=True, figure= {'data': [data1], 'layout': layout1})
+map_dist = dcc.Graph(id = 'map_dist')
 pie = dcc.Graph(id = 'pie', animate=True, figure= {'data': [data2], 'layout': layout2})
 bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
 line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
@@ -448,8 +448,8 @@ Dropdown = dbc.Row( [dbc.Col(
                     )
                     
                    
-graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
-graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
+graphRow2 = dbc.Row([dbc.Col(map_dist, width=11, lg=6), dbc.Col(pie, width=11, lg=5)])
+graphRow1 = dbc.Row([dbc.Col(line, width=11, lg=6), dbc.Col(bar, width=11, lg=5)])
 Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
 
 Loading = dcc.Loading(id="loading-1", children= Graphs , type="default")
@@ -468,7 +468,7 @@ def update_map( selected_item ):
     
     data_, layout = draw_map(selected_item)
     map_figure ={'data': [data_],'layout' : layout}
-        
+    
     return map_figure
 
 
@@ -497,8 +497,8 @@ def update_graphs( n, n_clicks):
         bar = dcc.Graph(id = 'bar', animate=True, figure= {'data': [data3], 'layout': layout3} )
         line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': layout4})
         
-        graphRow2 = dbc.Row([dbc.Col(map_dist, md=6), dbc.Col(pie, md=5)])
-        graphRow1 = dbc.Row([dbc.Col(line, md=6), dbc.Col(bar, md=5)])
+        graphRow2 = dbc.Row([dbc.Col(map_dist, width=11, lg=6), dbc.Col(pie, width=11, lg=5)])
+        graphRow1 = dbc.Row([dbc.Col(line, width=11, lg=6), dbc.Col(bar, width=11, lg=5)])
         Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
     
         return Graphs
