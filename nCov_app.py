@@ -284,14 +284,14 @@ df_hubei = df_hubei.sort_values(by= '确诊', ascending = False)
 
 def draw_map( selected_item = "中国分布" ):
     
-    if  selected_item == "世界分布":
+    if  selected_item == "World 世界分布":
         data_, layout = map_prep(geojson = world_geo, locations = df_World['code'],
                                   z = np.log10(df_World['确诊']), hovertext = df_World['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
                                   zoom = 1, title = "世界", updatetime = updatetime)
         
         
-    elif  selected_item == "中国分布" :
+    elif  selected_item == "China 中国分布" :
         data_, layout = map_prep(geojson = china_geo, locations = df_China['code'],
                                   z = np.log10(df_China['确诊']), hovertext = df_China['text'],
                                   center_lon = 109.469607, center_lat = 37.826077,
@@ -407,8 +407,8 @@ line = dcc.Graph(id = 'line', animate=True, figure= {'data': data4, 'layout': la
 
 app = dash.Dash('2019nCov-data',  external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-data_dict = {"世界分布": df_World, "中国分布": df_China, 
-             "湖北分布": df_hubei}
+data_dict = {"World 世界分布": df_World, "China 中国分布": df_China, 
+             "Hubei 湖北分布": df_hubei}
 
 
 # arrange app layout
@@ -416,19 +416,31 @@ Title =  dbc.Row( [dbc.Col(
                     html.H2('疫情追踪',
                             style={'float': 'right',
                                    }
-                            ), width = 6
+                            ), width = 6, align="start"
                           ),
+                    
+                    
+                     dbc.Col(
+                    dcc.RadioItems(id ='language',
+                            options=[
+                            {'label': '简体中文', 'value': 'CN'},
+                            {'label': 'English', 'value': 'EN'}
+                        ],
+                        value='CN',
+                        style={'float': 'right'}
+                    ), width = 2 , align="center"),
+                     
                   dbc.Col(
                     html.Img(
                             src = 'https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcTsIw6JB33EyGMmepsH2jbA_IJnPb2Bnj6WnlSslZV4IB_fFIs8',
                             style = {
                                     'height': '44%',
-                                    'width' : '20%',
+                                    'width' : '30%',
                                     'float' : 'right',
                                     'position' : 'relative',
                                     'margin-right' : 120,
                                     'margin-top' : 20 },
-                            ), width = 6      
+                            ), width = 4 , align="start"     
                           
                           )]
                 )
@@ -438,13 +450,15 @@ Dropdown = dbc.Row( [dbc.Col(
                     dcc.Dropdown(id='选择地图区域',
                                  options=[{'label': s, 'value': s}
                                           for s in data_dict.keys()],
-                                 value="中国分布",
+                                 value="China 中国分布",
                                  multi=False,
                                  style = {'margin-left' : 25}
                                  ), width = 3 ),
                     dbc.Col(
-                    html.Button('自动更新数据', id='button', n_clicks = 0,  style={'float': 'right'}), width = 2
-                    )]
+                    dcc.ConfirmDialogProvider(id = 'update provider',
+                    children = html.Button('Auto-Update', id='button', n_clicks = 0,  style={'float': 'right'}),
+                    message='Swithing on Auto-Update may take couple of minutes. Are you sure you want to continue?',
+                    submit_n_clicks = 0), width = 2)]
                     )
                     
                    
@@ -475,11 +489,11 @@ def update_map( selected_item ):
 @app.callback(
      Output('loading-1','children'),
     [Input('interval-component', 'n_intervals'),
-     Input('button', 'n_clicks')])
-def update_graphs( n, n_clicks):
-    
+     Input('update provider', 'submit_n_clicks')])
+def update_graphs( n, submit_n_clicks):
+
     # initialize the app with update off
-    if n_clicks == 0:
+    if submit_n_clicks == 0:
         raise PreventUpdate
         
     else:
@@ -500,7 +514,7 @@ def update_graphs( n, n_clicks):
         graphRow2 = dbc.Row([dbc.Col(map_dist, width=11, lg=6), dbc.Col(pie, width=11, lg=5)])
         graphRow1 = dbc.Row([dbc.Col(line, width=11, lg=6), dbc.Col(bar, width=11, lg=5)])
         Graphs = html.Div([graphRow1, graphRow2], id = 'graphs')
-    
+        
         return Graphs
 
 if __name__ == '__main__':
